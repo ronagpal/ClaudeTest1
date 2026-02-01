@@ -18,7 +18,7 @@ let score = 0;
 let highScore = localStorage.getItem('snakeHighScore') || 0;
 let gameLoop = null;
 let isPaused = false;
-let gameSpeed = 100;
+let gameSpeed = 150;
 
 // Initialize high score display
 highScoreElement.textContent = highScore;
@@ -64,56 +64,169 @@ function draw() {
         ctx.stroke();
     }
 
-    // Draw snake
-    snake.forEach((segment, index) => {
-        if (index === 0) {
-            // Head
+    // Draw snake body (draw from tail to head so head is on top)
+    for (let i = snake.length - 1; i >= 0; i--) {
+        const segment = snake[i];
+        const centerX = segment.x * GRID_SIZE + GRID_SIZE / 2;
+        const centerY = segment.y * GRID_SIZE + GRID_SIZE / 2;
+
+        if (i === 0) {
+            // Draw head
             ctx.fillStyle = '#4ecca3';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, GRID_SIZE / 2 - 1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head highlight
+            ctx.fillStyle = '#6ee6bc';
+            ctx.beginPath();
+            ctx.arc(centerX - 2, centerY - 2, GRID_SIZE / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes - position based on direction
+            const eyeOffsetX = direction.x * 3;
+            const eyeOffsetY = direction.y * 3;
+
+            // Eye whites
+            ctx.fillStyle = '#fff';
+            if (direction.x !== 0) {
+                // Moving horizontally
+                ctx.beginPath();
+                ctx.arc(centerX + eyeOffsetX, centerY - 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(centerX + eyeOffsetX, centerY + 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Moving vertically or stationary
+                ctx.beginPath();
+                ctx.arc(centerX - 4, centerY + eyeOffsetY, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(centerX + 4, centerY + eyeOffsetY, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Pupils
+            ctx.fillStyle = '#1a1a2e';
+            if (direction.x !== 0) {
+                ctx.beginPath();
+                ctx.arc(centerX + eyeOffsetX + direction.x, centerY - 4, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(centerX + eyeOffsetX + direction.x, centerY + 4, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.beginPath();
+                ctx.arc(centerX - 4, centerY + eyeOffsetY + direction.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(centerX + 4, centerY + eyeOffsetY + direction.y, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Tongue (only when moving)
+            if (direction.x !== 0 || direction.y !== 0) {
+                ctx.strokeStyle = '#ff6b6b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const tongueStartX = centerX + direction.x * 8;
+                const tongueStartY = centerY + direction.y * 8;
+                ctx.moveTo(tongueStartX, tongueStartY);
+                ctx.lineTo(tongueStartX + direction.x * 6, tongueStartY + direction.y * 6);
+                // Fork
+                ctx.moveTo(tongueStartX + direction.x * 6, tongueStartY + direction.y * 6);
+                if (direction.x !== 0) {
+                    ctx.lineTo(tongueStartX + direction.x * 8, tongueStartY - 3);
+                    ctx.moveTo(tongueStartX + direction.x * 6, tongueStartY + direction.y * 6);
+                    ctx.lineTo(tongueStartX + direction.x * 8, tongueStartY + 3);
+                } else {
+                    ctx.lineTo(tongueStartX - 3, tongueStartY + direction.y * 8);
+                    ctx.moveTo(tongueStartX + direction.x * 6, tongueStartY + direction.y * 6);
+                    ctx.lineTo(tongueStartX + 3, tongueStartY + direction.y * 8);
+                }
+                ctx.stroke();
+            }
         } else {
-            // Body with gradient effect
-            const alpha = 1 - (index / snake.length) * 0.5;
+            // Draw body segment as circle
+            const alpha = 1 - (i / snake.length) * 0.4;
             ctx.fillStyle = `rgba(78, 204, 163, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body segment highlight
+            ctx.fillStyle = `rgba(110, 230, 188, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(centerX - 2, centerY - 2, GRID_SIZE / 4 - 1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw connector between segments for smoother look
+            if (i < snake.length - 1) {
+                const nextSegment = snake[i + 1];
+                const nextCenterX = nextSegment.x * GRID_SIZE + GRID_SIZE / 2;
+                const nextCenterY = nextSegment.y * GRID_SIZE + GRID_SIZE / 2;
+
+                ctx.fillStyle = `rgba(78, 204, 163, ${alpha})`;
+                ctx.fillRect(
+                    Math.min(centerX, nextCenterX) - GRID_SIZE / 2 + 2,
+                    Math.min(centerY, nextCenterY) - GRID_SIZE / 2 + 2,
+                    Math.abs(nextCenterX - centerX) + GRID_SIZE - 4,
+                    Math.abs(nextCenterY - centerY) + GRID_SIZE - 4
+                );
+            }
         }
-        ctx.fillRect(
-            segment.x * GRID_SIZE + 1,
-            segment.y * GRID_SIZE + 1,
-            GRID_SIZE - 2,
-            GRID_SIZE - 2
-        );
+    }
 
-        // Add rounded corners effect
-        ctx.fillStyle = index === 0 ? '#6ee6bc' : `rgba(110, 230, 188, ${1 - (index / snake.length) * 0.5})`;
-        ctx.fillRect(
-            segment.x * GRID_SIZE + 3,
-            segment.y * GRID_SIZE + 3,
-            GRID_SIZE - 6,
-            GRID_SIZE - 6
-        );
-    });
+    // Draw apple
+    const appleX = food.x * GRID_SIZE + GRID_SIZE / 2;
+    const appleY = food.y * GRID_SIZE + GRID_SIZE / 2;
 
-    // Draw food
-    ctx.fillStyle = '#ff6b6b';
+    // Apple body (red)
+    ctx.fillStyle = '#e74c3c';
     ctx.beginPath();
-    ctx.arc(
-        food.x * GRID_SIZE + GRID_SIZE / 2,
-        food.y * GRID_SIZE + GRID_SIZE / 2,
-        GRID_SIZE / 2 - 2,
-        0,
-        Math.PI * 2
-    );
+    ctx.arc(appleX, appleY + 1, GRID_SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Food shine effect
-    ctx.fillStyle = '#ff8787';
+    // Apple darker side
+    ctx.fillStyle = '#c0392b';
     ctx.beginPath();
-    ctx.arc(
-        food.x * GRID_SIZE + GRID_SIZE / 2 - 3,
-        food.y * GRID_SIZE + GRID_SIZE / 2 - 3,
-        3,
-        0,
-        Math.PI * 2
-    );
+    ctx.arc(appleX + 2, appleY + 2, GRID_SIZE / 2 - 4, 0, Math.PI * 2);
     ctx.fill();
+
+    // Apple main body overlay
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(appleX - 1, appleY, GRID_SIZE / 2 - 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Apple shine/highlight
+    ctx.fillStyle = '#ff7675';
+    ctx.beginPath();
+    ctx.arc(appleX - 4, appleY - 3, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stem
+    ctx.strokeStyle = '#795548';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(appleX, appleY - 6);
+    ctx.lineTo(appleX + 1, appleY - 10);
+    ctx.stroke();
+
+    // Leaf
+    ctx.fillStyle = '#27ae60';
+    ctx.beginPath();
+    ctx.ellipse(appleX + 4, appleY - 8, 4, 2, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Leaf vein
+    ctx.strokeStyle = '#1e8449';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(appleX + 2, appleY - 7);
+    ctx.lineTo(appleX + 6, appleY - 9);
+    ctx.stroke();
 }
 
 // Update game state
@@ -154,8 +267,8 @@ function update() {
         generateFood();
 
         // Increase speed slightly
-        if (gameSpeed > 50) {
-            gameSpeed -= 2;
+        if (gameSpeed > 80) {
+            gameSpeed -= 1;
             restartGameLoop();
         }
     } else {
@@ -213,7 +326,7 @@ function startGame() {
     generateFood();
     score = 0;
     scoreElement.textContent = score;
-    gameSpeed = 100;
+    gameSpeed = 150;
     isPaused = false;
 
     startBtn.disabled = true;
